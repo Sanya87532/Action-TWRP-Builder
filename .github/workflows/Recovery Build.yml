@@ -82,12 +82,17 @@ jobs:
 
     - name: Prepare the environment
       run: |
-        # Обновляем систему
-        sudo apt update -y
-        sudo apt upgrade -y
+        echo "🧹 Ensuring APT is ready..."
+        sudo rm -f /var/lib/dpkg/lock-frontend /var/lib/dpkg/lock
+        sudo rm -f /var/cache/apt/archives/lock
+        sudo dpkg --configure -a || true
 
-        # Устанавливаем зависимости для сборки TWRP
-        DEBIAN_FRONTEND=noninteractive sudo apt install -y \
+        echo "⬆️ Updating system..."
+        sudo DEBIAN_FRONTEND=noninteractive apt-get -o Dpkg::Lock::Timeout=120 update -y
+        sudo DEBIAN_FRONTEND=noninteractive apt-get -o Dpkg::Lock::Timeout=120 upgrade -y
+
+        echo "📦 Installing build dependencies..."
+        DEBIAN_FRONTEND=noninteractive sudo apt-get -o Dpkg::Lock::Timeout=120 install -y \
             git curl wget unzip zip python3 python3-pip python3-distutils python3-setuptools \
             bc bison build-essential ccache flex g++-multilib gcc-multilib \
             g++-10-multilib gcc-10-multilib lib32ncurses-dev lib32z1-dev \
@@ -98,7 +103,7 @@ jobs:
             ncftp qemu-user-static libstdc++-10-dev libncurses6 tar \
             linux-modules-extra-$(uname -r) || true
 
-        # Проверяем наличие ccache
+        # Проверяем ccache
         ccache --version
 
         # Создаём каталог bin для локальных инструментов
@@ -117,12 +122,12 @@ jobs:
           startsWith(github.event.inputs.COMMON_TREE_URL, 'git@github.com') }}
       uses: webfactory/ssh-agent@v0.9.0
       with:
-          ssh-private-key: |
-            ${{ secrets.SSH_PRIVATE_KEY }}
+        ssh-private-key: |
+          ${{ secrets.SSH_PRIVATE_KEY }}
 
     - name: Install repo
       run: |
-        mkdir -p ~/bin
+        mkdir ~/bin
         curl https://storage.googleapis.com/git-repo-downloads/repo > ~/bin/repo
         chmod a+x ~/bin/repo
         sudo ln -sf ~/bin/repo /usr/bin/repo
