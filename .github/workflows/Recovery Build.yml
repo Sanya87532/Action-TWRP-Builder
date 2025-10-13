@@ -83,9 +83,6 @@ jobs:
 
     - name: Prepare the environment
     run: |
-    # Обновляем систему
-    sudo apt update -y
-    sudo apt upgrade -y
 
     # Устанавливаем зависимости для сборки TWRP
     DEBIAN_FRONTEND=noninteractive sudo apt install -y \
