@@ -69,7 +69,6 @@ jobs:
     - name: Check Out
       uses: actions/checkout@v4
 
-    # 🧹 Полная очистка для освобождения места
     - name: Cleanup disk space
       run: |
         echo "🧹 Cleaning up disk space before build..."
@@ -82,26 +81,29 @@ jobs:
         echo "✅ Disk cleaned."
 
     - name: Prepare the environment
-    run: |
+      run: |
+        # Обновляем систему
+        sudo apt update -y
+        sudo apt upgrade -y
 
-    # Устанавливаем зависимости для сборки TWRP
-    DEBIAN_FRONTEND=noninteractive sudo apt install -y \
-        git curl wget unzip zip python3 python3-pip python3-distutils python3-setuptools \
-        bc bison build-essential ccache flex g++-multilib gcc-multilib \
-        g++-10-multilib gcc-10-multilib lib32ncurses-dev lib32z1-dev \
-        libncurses5-dev libncursesw5-dev libssl-dev libelf-dev x11proto-core-dev \
-        libx11-dev tree libgl1-mesa-dev libxml2-utils xsltproc libc6-dev \
-        liblz4-tool libsdl1.2-dev libgtk-3-dev libglu1-mesa-dev freeglut3-dev \
-        lzop pngcrush schedtool squashfs-tools imagemagick libbz2-dev lzma \
-        ncftp qemu-user-static libstdc++-10-dev libncurses6 tar \
-        linux-modules-extra-$(uname -r) || true
+        # Устанавливаем зависимости для сборки TWRP
+        DEBIAN_FRONTEND=noninteractive sudo apt install -y \
+            git curl wget unzip zip python3 python3-pip python3-distutils python3-setuptools \
+            bc bison build-essential ccache flex g++-multilib gcc-multilib \
+            g++-10-multilib gcc-10-multilib lib32ncurses-dev lib32z1-dev \
+            libncurses5-dev libncursesw5-dev libssl-dev libelf-dev x11proto-core-dev \
+            libx11-dev tree libgl1-mesa-dev libxml2-utils xsltproc libc6-dev \
+            liblz4-tool libsdl1.2-dev libgtk-3-dev libglu1-mesa-dev freeglut3-dev \
+            lzop pngcrush schedtool squashfs-tools imagemagick libbz2-dev lzma \
+            ncftp qemu-user-static libstdc++-10-dev libncurses6 tar \
+            linux-modules-extra-$(uname -r) || true
 
-    # Проверяем наличие ccache
-    ccache --version
+        # Проверяем наличие ccache
+        ccache --version
 
-    # Создаём каталог bin для локальных инструментов
-    mkdir -p ~/bin
-    export PATH=~/bin:$PATH
+        # Создаём каталог bin для локальных инструментов
+        mkdir -p ~/bin
+        export PATH=~/bin:$PATH
 
     - name: Install OpenJDK
       uses: actions/setup-java@v4
@@ -120,7 +122,7 @@ jobs:
 
     - name: Install repo
       run: |
-        mkdir ~/bin
+        mkdir -p ~/bin
         curl https://storage.googleapis.com/git-repo-downloads/repo > ~/bin/repo
         chmod a+x ~/bin/repo
         sudo ln -sf ~/bin/repo /usr/bin/repo
