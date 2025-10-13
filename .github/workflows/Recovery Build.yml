@@ -48,6 +48,10 @@ jobs:
     runs-on: ubuntu-24.04
     permissions:
       contents: write
+    env:
+      USE_CCACHE: 0
+      MAKEFLAGS: -j4
+      BUILD_WITH_COLORS: true
     steps:
     - name: Display Run Parameters
       run: |
@@ -62,14 +66,20 @@ jobs:
         echo "Build Target: ${{ github.event.inputs.BUILD_TARGET }}.img"
         echo "::endgroup::"
 
-    # You might want to Checkout your repo first, but not mandatory
     - name: Check Out
       uses: actions/checkout@v4
 
-    # Cleanup The Actions Workspace Using Custom Composite Run Actions
-    - name: Cleanup
-      uses: rokibhasansagar/slimhub_actions@main
-      # That's it! Now use your normal steps
+    # 🧹 Полная очистка для освобождения места
+    - name: Cleanup disk space
+      run: |
+        echo "🧹 Cleaning up disk space before build..."
+        sudo rm -rf /usr/share/dotnet
+        sudo rm -rf /opt/ghc
+        sudo rm -rf /usr/local/lib/android
+        sudo rm -rf /opt/hostedtoolcache
+        sudo apt-get clean
+        df -h
+        echo "✅ Disk cleaned."
 
     - name: Prepare the environment
       run: |
@@ -109,14 +119,15 @@ jobs:
         mkdir workspace
         cd workspace
         echo "workspace-folder=$(pwd)" >> $GITHUB_OUTPUT
-        git config --global user.name "Nico170420"
-        git config --global user.email "b170420nc@gmail.com"
+        git config --global user.name "AutoBuilder"
+        git config --global user.email "autobuild@users.noreply.github.com"
         repo init --depth=1 -u ${{ github.event.inputs.MANIFEST_URL }} -b ${{ github.event.inputs.MANIFEST_BRANCH }}
       id: pwd
 
     - name: Repo Sync
       run: |
-        repo sync -j$(nproc --all) --force-sync
+        repo sync -j4 --force-sync
+        df -h
       working-directory: workspace
 
     - name: Clone device tree
@@ -132,18 +143,10 @@ jobs:
         git clone ${{ github.event.inputs.COMMON_TREE_URL }} -b ${{ github.event.inputs.DEVICE_TREE_BRANCH }} ./${{ github.event.inputs.COMMON_PATH }}
       working-directory: ${{ steps.pwd.outputs.workspace-folder }}
 
-    - name: Check Build Tree
-      uses: haya14busa/action-cond@v1
-      id: buildtree
-      with:
-        cond: ${{ github.event.inputs.MANIFEST_BRANCH == 'twrp-11' || github.event.inputs.MANIFEST_BRANCH == 'twrp-12.1' }}
-        if_true: twrp
-        if_false: omni
-
     - name: Sync Device Dependencies
       run: |
-        bash ${GITHUB_WORKSPACE}/scripts/convert.sh ${{ github.event.inputs.DEVICE_PATH }}/${{ steps.buildtree.outputs.value }}.dependencies
-        repo sync -j$(nproc --all)
+        bash ${GITHUB_WORKSPACE}/scripts/convert.sh ${{ github.event.inputs.DEVICE_PATH }}/twrp.dependencies || true
+        repo sync -j4 || true
       working-directory: ${{ steps.pwd.outputs.workspace-folder }}
       continue-on-error: true
 
@@ -152,20 +155,21 @@ jobs:
       with:
         swap-size-gb: 12
 
-    - name: Building recovery
+    - name: Build TWRP
       run: |
         source build/envsetup.sh
         export ALLOW_MISSING_DEPENDENCIES=true
-        lunch ${{ github.event.inputs.MAKEFILE_NAME }}-eng && make clean && make ${{ github.event.inputs.BUILD_TARGET }}image -j$(nproc --all)
+        lunch ${{ github.event.inputs.MAKEFILE_NAME }}-eng
+        mka clean
+        mka ${{ github.event.inputs.BUILD_TARGET }}image
       working-directory: ${{ steps.pwd.outputs.workspace-folder }}
 
     - name: Upload to Release
       uses: softprops/action-gh-release@v2
       with:
-        files: | 
-          workspace/out/target/product/${{ github.event.inputs.DEVICE_NAME }}/${{ github.event.inputs.BUILD_TARGET }}.img
+        files: |
+          workspace/out/target/product/${{ github.event.inputs.DEVICE_NAME }}/*.img
           workspace/out/target/product/${{ github.event.inputs.DEVICE_NAME }}/*.zip
-          workspace/out/target/product/${{ github.event.inputs.DEVICE_NAME }}/*vendor*.img
         name: ${{ github.event.inputs.DEVICE_NAME }}-${{ github.run_id }}
         tag_name: ${{ github.run_id }}
         body: |
