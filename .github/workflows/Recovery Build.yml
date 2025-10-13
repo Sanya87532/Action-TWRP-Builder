@@ -73,29 +73,17 @@ jobs:
       run: |
         echo "🧹 Cleaning up disk space before build..."
 
-        # Останавливаем фоновые процессы apt
-        sudo systemctl stop apt-daily.timer apt-daily-upgrade.timer
-        sudo systemctl stop apt-daily.service apt-daily-upgrade.service || true
+        # Принудительно убиваем все процессы apt и удаляем lock-файлы
+        sudo killall apt apt-get || true
+        sudo rm -rf /var/lib/apt/lists/lock /var/cache/apt/archives/lock /var/lib/dpkg/lock*
+        sudo dpkg --configure -a || true
 
-        # Ждём освобождения lock-файлов
-        while sudo fuser /var/lib/dpkg/lock >/dev/null 2>&1; do
-            echo "Waiting for dpkg lock to be released..."
-            sleep 5
-        done
-        while sudo fuser /var/lib/apt/lists/lock >/dev/null 2>&1; do
-            echo "Waiting for apt lists lock to be released..."
-            sleep 5
-        done
-        while sudo fuser /var/cache/apt/archives/lock >/dev/null 2>&1; do
-            echo "Waiting for apt archives lock to be released..."
-            sleep 5
-        done
-
+        # Удаляем временные каталоги
         sudo rm -rf /usr/share/dotnet
         sudo rm -rf /opt/ghc
         sudo rm -rf /usr/local/lib/android
         sudo rm -rf /opt/hostedtoolcache
-        sudo apt-get clean
+        sudo apt-get clean || true
         df -h
         echo "✅ Disk cleaned."
 
