@@ -72,6 +72,25 @@ jobs:
     - name: Cleanup disk space
       run: |
         echo "🧹 Cleaning up disk space before build..."
+
+        # Останавливаем фоновые процессы apt
+        sudo systemctl stop apt-daily.timer apt-daily-upgrade.timer
+        sudo systemctl stop apt-daily.service apt-daily-upgrade.service || true
+
+        # Ждём освобождения lock-файлов
+        while sudo fuser /var/lib/dpkg/lock >/dev/null 2>&1; do
+            echo "Waiting for dpkg lock to be released..."
+            sleep 5
+        done
+        while sudo fuser /var/lib/apt/lists/lock >/dev/null 2>&1; do
+            echo "Waiting for apt lists lock to be released..."
+            sleep 5
+        done
+        while sudo fuser /var/cache/apt/archives/lock >/dev/null 2>&1; do
+            echo "Waiting for apt archives lock to be released..."
+            sleep 5
+        done
+
         sudo rm -rf /usr/share/dotnet
         sudo rm -rf /opt/ghc
         sudo rm -rf /usr/local/lib/android
@@ -82,17 +101,10 @@ jobs:
 
     - name: Prepare the environment
       run: |
-        echo "🧹 Ensuring APT is ready..."
-        sudo rm -f /var/lib/dpkg/lock-frontend /var/lib/dpkg/lock
-        sudo rm -f /var/cache/apt/archives/lock
-        sudo dpkg --configure -a || true
-
-        echo "⬆️ Updating system..."
-        sudo DEBIAN_FRONTEND=noninteractive apt-get -o Dpkg::Lock::Timeout=120 update -y
-        sudo DEBIAN_FRONTEND=noninteractive apt-get -o Dpkg::Lock::Timeout=120 upgrade -y
-
-        echo "📦 Installing build dependencies..."
-        DEBIAN_FRONTEND=noninteractive sudo apt-get -o Dpkg::Lock::Timeout=120 install -y \
+        echo "⚙️ Installing build dependencies..."
+        sudo DEBIAN_FRONTEND=noninteractive apt-get update -y
+        sudo DEBIAN_FRONTEND=noninteractive apt-get upgrade -y
+        sudo DEBIAN_FRONTEND=noninteractive apt-get install -y \
             git curl wget unzip zip python3 python3-pip python3-distutils python3-setuptools \
             bc bison build-essential ccache flex g++-multilib gcc-multilib \
             g++-10-multilib gcc-10-multilib lib32ncurses-dev lib32z1-dev \
@@ -101,12 +113,8 @@ jobs:
             liblz4-tool libsdl1.2-dev libgtk-3-dev libglu1-mesa-dev freeglut3-dev \
             lzop pngcrush schedtool squashfs-tools imagemagick libbz2-dev lzma \
             ncftp qemu-user-static libstdc++-10-dev libncurses6 tar \
-            linux-modules-extra-$(uname -r) || true
-
-        # Проверяем ccache
+            linux-modules-extra-$(uname -r)
         ccache --version
-
-        # Создаём каталог bin для локальных инструментов
         mkdir -p ~/bin
         export PATH=~/bin:$PATH
 
@@ -122,12 +130,12 @@ jobs:
           startsWith(github.event.inputs.COMMON_TREE_URL, 'git@github.com') }}
       uses: webfactory/ssh-agent@v0.9.0
       with:
-        ssh-private-key: |
-          ${{ secrets.SSH_PRIVATE_KEY }}
+          ssh-private-key: |
+            ${{ secrets.SSH_PRIVATE_KEY }}
 
     - name: Install repo
       run: |
-        mkdir ~/bin
+        mkdir -p ~/bin
         curl https://storage.googleapis.com/git-repo-downloads/repo > ~/bin/repo
         chmod a+x ~/bin/repo
         sudo ln -sf ~/bin/repo /usr/bin/repo
