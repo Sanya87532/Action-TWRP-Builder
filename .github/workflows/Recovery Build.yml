@@ -4,49 +4,47 @@ on:
   workflow_dispatch:
     inputs:
       MANIFEST_URL:
-        description: 'MANIFEST_URL (use HTTPS)'
+        description: 'Manifest URL (use HTTPS)'
         required: true
-        default: 'https://github.com/PitchBlackRecoveryProject/manifest_pb.git'
+        default: 'https://github.com/minimal-manifest-twrp/platform_manifest_twrp_aosp'
       MANIFEST_BRANCH:
-        description: 'MANIFEST_BRANCH'
+        description: 'Manifest branch'
         required: true
-        default: 'android-14.0'
+        default: 'twrp-12.1'
       DEVICE_TREE_URL:
-        description: 'DEVICE_TREE_URL (use HTTPS)'
+        description: 'Device tree URL (use HTTPS)'
         required: true
         default: 'https://github.com/TeamWin/android_device_asus_I003D'
       DEVICE_TREE_BRANCH:
-        description: 'DEVICE_TREE_BRANCH'
+        description: 'Device tree branch'
         required: true
-        default: 'android-14.0'
+        default: 'android-12.1'
       DEVICE_PATH:
-        description: 'DEVICE_PATH'
+        description: 'Device path'
         required: true
         default: 'device/asus/I003D'
       COMMON_TREE_URL:
-        description: 'COMMON_TREE_URL (optional, HTTPS)'
+        description: 'Common tree URL (optional, use HTTPS)'
         required: false
       COMMON_PATH:
-        description: 'COMMON_PATH (optional)'
+        description: 'Common path'
         required: false
       DEVICE_NAME:
-        description: 'DEVICE_NAME'
+        description: 'Device name'
         required: true
         default: 'I003D'
       MAKEFILE_NAME:
-        description: 'MAKEFILE_NAME'
+        description: 'Makefile name'
         required: true
         default: 'twrp_I003D'
       BUILD_TARGET:
-        description: 'BUILD_TARGET'
+        description: 'Build target'
         required: true
         default: 'recovery'
 
 jobs:
   build:
     runs-on: self-hosted
-    permissions:
-      contents: write
     env:
       USE_CCACHE: 0
       MAKEFLAGS: -j4
@@ -55,7 +53,6 @@ jobs:
     steps:
     - name: Display Run Parameters
       run: |
-        echo "::group::User Environment Variables"
         echo "Manifest URL: ${{ github.event.inputs.MANIFEST_URL }}"
         echo "Manifest Branch: ${{ github.event.inputs.MANIFEST_BRANCH }}"
         echo "Device Tree URL: ${{ github.event.inputs.DEVICE_TREE_URL }}"
@@ -64,40 +61,34 @@ jobs:
         echo "Device Name: ${{ github.event.inputs.DEVICE_NAME }}"
         echo "Makefile Name: ${{ github.event.inputs.MAKEFILE_NAME }}"
         echo "Build Target: ${{ github.event.inputs.BUILD_TARGET }}.img"
-        echo "::endgroup::"
 
-    - name: Cleanup disk space
+    - name: Wait for apt lock and clean disk
       run: |
+        while sudo fuser /var/lib/dpkg/lock >/dev/null 2>&1 || sudo fuser /var/cache/apt/archives/lock >/dev/null 2>&1; do
+          echo "Waiting for apt lock to be released..."
+          sleep 5
+        done
         echo "🧹 Cleaning up disk space..."
         sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/lib/android /opt/hostedtoolcache
         sudo apt-get clean
         df -h
 
-    - name: Prepare the environment
+    - name: Install Build Dependencies
       run: |
-        echo "⚙️ Installing build dependencies..."
-        sudo apt-get update -y
-        sudo apt-get upgrade -y
-        DEBIAN_FRONTEND=noninteractive sudo apt-get install -y \
-          git curl wget unzip zip python3 python3-pip python3-setuptools \
-          bc bison build-essential ccache flex g++-multilib gcc-multilib \
-          g++-10-multilib gcc-10-multilib lib32ncurses-dev lib32z1-dev \
-          libncurses5-dev libncursesw5-dev libssl-dev libelf-dev x11proto-core-dev \
-          libx11-dev tree libgl1-mesa-dev libxml2-utils xsltproc libc6-dev \
-          liblz4-tool libsdl1.2-dev libgtk-3-dev libglu1-mesa-dev freeglut3-dev \
-          lzop pngcrush schedtool squashfs-tools imagemagick libbz2-dev lzma \
-          ncftp qemu-user-static libstdc++-10-dev libncurses6 tar \
-          linux-modules-extra-$(uname -r) python3-distutils || true
-
-        # Симлинк python -> python3
-        if ! command -v python &> /dev/null; then
-          sudo ln -s /usr/bin/python3 /usr/bin/python
-        fi
-
-        # Проверка ccache
-        ccache --version
-        mkdir -p ~/bin
-        export PATH=~/bin:$PATH
+        while sudo fuser /var/lib/dpkg/lock >/dev/null 2>&1 || sudo fuser /var/cache/apt/archives/lock >/dev/null 2>&1; do
+          echo "Waiting for apt lock to be released..."
+          sleep 5
+        done
+        sudo apt update -y
+        sudo apt upgrade -y
+        DEBIAN_FRONTEND=noninteractive sudo apt install -y \
+          git curl wget unzip zip python3 python3-pip bc bison build-essential ccache \
+          flex g++-multilib gcc-multilib lib32ncurses-dev lib32z1-dev libncurses5-dev \
+          libncursesw5-dev libssl-dev libelf-dev x11proto-core-dev libx11-dev tree \
+          libgl1-mesa-dev libxml2-utils xsltproc libc6-dev liblz4-tool libsdl1.2-dev \
+          libgtk-3-dev libglu1-mesa-dev freeglut3-dev lzop pngcrush schedtool \
+          squashfs-tools imagemagick libbz2-dev lzma ncftp qemu-user-static \
+          libstdc++-10-dev libncurses6 tar
 
     - name: Install OpenJDK
       uses: actions/setup-java@v4
@@ -123,18 +114,16 @@ jobs:
       id: pwd
 
     - name: Repo Sync
-      run: |
-        repo sync -j4 --force-sync
-        df -h
+      run: repo sync -j4 --force-sync
       working-directory: workspace
 
-    - name: Clone device tree
+    - name: Clone Device Tree
       run: |
         git clone ${{ github.event.inputs.DEVICE_TREE_URL }} -b ${{ github.event.inputs.DEVICE_TREE_BRANCH }} ./${{ github.event.inputs.DEVICE_PATH }}
       working-directory: ${{ steps.pwd.outputs.workspace-folder }}
 
-    - name: Clone common tree
-      if: ${{ github.event.inputs.COMMON_TREE_URL != '' && github.event.inputs.COMMON_PATH != '' }}
+    - name: Clone Common Tree
+      if: ${{ github.event.inputs.COMMON_TREE_URL && github.event.inputs.COMMON_PATH }}
       run: |
         git clone ${{ github.event.inputs.COMMON_TREE_URL }} -b ${{ github.event.inputs.DEVICE_TREE_BRANCH }} ./${{ github.event.inputs.COMMON_PATH }}
       working-directory: ${{ steps.pwd.outputs.workspace-folder }}
@@ -153,6 +142,7 @@ jobs:
 
     - name: Build TWRP
       run: |
+        sudo ln -s /usr/bin/python3 /usr/bin/python || true
         source build/envsetup.sh
         export ALLOW_MISSING_DEPENDENCIES=true
         lunch ${{ github.event.inputs.MAKEFILE_NAME }}-eng
@@ -160,17 +150,10 @@ jobs:
         mka ${{ github.event.inputs.BUILD_TARGET }}image
       working-directory: ${{ steps.pwd.outputs.workspace-folder }}
 
-    - name: Upload to Release
-      uses: softprops/action-gh-release@v2
+    - name: Upload Artifacts
+      uses: actions/upload-artifact@v4
       with:
-        files: |
+        name: ${{ github.event.inputs.DEVICE_NAME }}-${{ github.run_id }}
+        path: |
           workspace/out/target/product/${{ github.event.inputs.DEVICE_NAME }}/*.img
           workspace/out/target/product/${{ github.event.inputs.DEVICE_NAME }}/*.zip
-        name: ${{ github.event.inputs.DEVICE_NAME }}-${{ github.run_id }}
-        tag_name: ${{ github.run_id }}
-        body: |
-          Manifest: ${{ github.event.inputs.MANIFEST_BRANCH }}
-          Device: ${{ github.event.inputs.DEVICE_NAME }}
-          Target: ${{ github.event.inputs.BUILD_TARGET }}.img
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
