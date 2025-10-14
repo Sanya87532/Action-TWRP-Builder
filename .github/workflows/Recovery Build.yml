@@ -64,15 +64,15 @@ jobs:
 
     - name: Clean Disk and Prepare APT
       run: |
-        sudo "🧹 Cleaning up disk space..."
+        echo "🧹 Cleaning up disk space..."
         sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/lib/android /opt/hostedtoolcache
         sudo apt-get clean
         df -h
 
-    # Принудительно освободить apt lock
-      sudo killall apt apt-get dpkg || true
-       sudo rm -f /var/lib/dpkg/lock-frontend /var/lib/dpkg/lock /var/cache/apt/archives/lock
-       sudo dpkg --configure -a
+        # Принудительно освободить apt lock
+        sudo killall apt apt-get dpkg || true
+        sudo rm -f /var/lib/dpkg/lock-frontend /var/lib/dpkg/lock /var/cache/apt/archives/lock
+        sudo dpkg --configure -a
 
     - name: Install Build Dependencies
       run: |
