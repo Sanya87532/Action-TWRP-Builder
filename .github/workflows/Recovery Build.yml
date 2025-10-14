@@ -149,24 +149,27 @@ jobs:
 
     - name: Build TWRP
       run: |
-        # ✅ Проверяем Python-ссылку, чтобы избежать ошибки "File exists"
         if ! command -v python >/dev/null 2>&1; then
           sudo ln -sf /usr/bin/python3 /usr/bin/python
-        else
-          echo "✅ Python link already exists"
         fi
 
-        # 🏗️ Запускаем сборку TWRP
         source build/envsetup.sh
         export ALLOW_MISSING_DEPENDENCIES=true
+        export BUILD_BROKEN_MISSING_REQUIRED_MODULES=true
+        export BUILD_BROKEN_USES_NETWORK=true
 
         echo "🔧 Using fixed lunch combo: twrp_rothko-ap2a-eng"
         lunch twrp_rothko-ap2a-eng
 
+        echo "⚙️ Disabling problematic android.security.apc module..."
+        rm -rf system/security/apc || true
+        find system -type f -name "Android.bp" | xargs sed -i '/android\.security\.apc/d' || true
+        find system -type f -name "Android.mk" | xargs sed -i '/android\.security\.apc/d' || true
+
         mka clean
         mka ${{ github.event.inputs.BUILD_TARGET }}image
       working-directory: ${{ steps.pwd.outputs.workspace-folder }}
-
+      
     - name: Upload Artifacts
       uses: actions/upload-artifact@v4
       with:
