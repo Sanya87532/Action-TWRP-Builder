@@ -62,16 +62,17 @@ jobs:
         echo "Makefile Name: ${{ github.event.inputs.MAKEFILE_NAME }}"
         echo "Build Target: ${{ github.event.inputs.BUILD_TARGET }}.img"
 
-    - name: Wait for apt lock and clean disk
+    - name: Clean Disk and Prepare APT
       run: |
-        while sudo fuser /var/lib/dpkg/lock >/dev/null 2>&1 || sudo fuser /var/cache/apt/archives/lock >/dev/null 2>&1; do
-          echo "Waiting for apt lock to be released..."
-          sleep 5
-        done
-        echo "🧹 Cleaning up disk space..."
+        sudo "🧹 Cleaning up disk space..."
         sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/lib/android /opt/hostedtoolcache
         sudo apt-get clean
         df -h
+
+    # Принудительно освободить apt lock
+      sudo killall apt apt-get dpkg || true
+       sudo rm -f /var/lib/dpkg/lock-frontend /var/lib/dpkg/lock /var/cache/apt/archives/lock
+       sudo dpkg --configure -a
 
     - name: Install Build Dependencies
       run: |
