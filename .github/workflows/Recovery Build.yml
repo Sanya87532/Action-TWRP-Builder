@@ -106,7 +106,8 @@ jobs:
 
     - name: Initialize repo
       run: |
-        mkdir workspace
+        rm -rf workspace || true
+        mkdir -p workspace
         cd workspace
         echo "workspace-folder=$(pwd)" >> $GITHUB_OUTPUT
         git config --global user.name "AutoBuilder"
