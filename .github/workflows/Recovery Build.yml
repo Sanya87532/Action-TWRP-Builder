@@ -149,10 +149,20 @@ jobs:
 
     - name: Build TWRP
       run: |
-        sudo ln -s /usr/bin/python3 /usr/bin/python || true
+        # ✅ Проверяем Python-ссылку, чтобы избежать ошибки "File exists"
+        if ! command -v python >/dev/null 2>&1; then
+          sudo ln -sf /usr/bin/python3 /usr/bin/python
+        else
+          echo "✅ Python link already exists"
+        fi
+
+        # 🏗️ Запускаем сборку TWRP
         source build/envsetup.sh
         export ALLOW_MISSING_DEPENDENCIES=true
-        lunch ${{ github.event.inputs.MAKEFILE_NAME }}-eng
+
+        echo "🔧 Using fixed lunch combo: twrp_rothko-ap2a-eng"
+        lunch twrp_rothko-ap2a-eng
+
         mka clean
         mka ${{ github.event.inputs.BUILD_TARGET }}image
       working-directory: ${{ steps.pwd.outputs.workspace-folder }}
