@@ -66,9 +66,6 @@ jobs:
         echo "Build Target: ${{ github.event.inputs.BUILD_TARGET }}.img"
         echo "::endgroup::"
 
-    - name: Checkout repository
-      uses: actions/checkout@v4
-
     - name: Cleanup disk space
       run: |
         echo "🧹 Cleaning up disk space..."
