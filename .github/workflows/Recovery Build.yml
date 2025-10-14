@@ -141,6 +141,11 @@ jobs:
       with:
         swap-size-gb: 12
 
+    - name: Clone missing gflags
+      run: |
+        git clone https://github.com/google/gflags external/gflags || true
+      working-directory: ${{ steps.pwd.outputs.workspace-folder }}
+
     - name: Build TWRP
       run: |
         sudo ln -s /usr/bin/python3 /usr/bin/python || true
