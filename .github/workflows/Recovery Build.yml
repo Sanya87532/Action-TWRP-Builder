@@ -65,15 +65,33 @@ jobs:
     - name: Clean Disk and Prepare APT
       run: |
         echo "🧹 Cleaning up disk space..."
-        sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/lib/android /opt/hostedtoolcache
-        sudo apt-get clean
-        df -h
+        # Ждём пока освободится apt lock
+        timeout=120
+        waited=0
+        while sudo fuser /var/lib/dpkg/lock >/dev/null 2>&1 || \
+              sudo fuser /var/lib/dpkg/lock-frontend >/dev/null 2>&1 || \
+              sudo fuser /var/cache/apt/archives/lock >/dev/null 2>&1; do
+          if [ $waited -ge $timeout ]; then
+            echo "⚠️  Timeout reached — force unlocking apt..."
+            sudo killall apt apt-get dpkg || true
+            sudo rm -f /var/lib/dpkg/lock-frontend /var/lib/dpkg/lock /var/cache/apt/archives/lock
+            sudo dpkg --configure -a || true
+            break
+          fi
+          echo "Waiting for apt lock to be released... ($waited seconds)"
+          sleep 5
+          waited=$((waited+5))
+        done
 
-        # Принудительно освободить apt lock
+        # После ожидания — очистка
         sudo killall apt apt-get dpkg || true
         sudo rm -f /var/lib/dpkg/lock-frontend /var/lib/dpkg/lock /var/cache/apt/archives/lock
         sudo dpkg --configure -a
 
+        sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/lib/android /opt/hostedtoolcache
+        sudo apt-get clean
+        df -h
+        
     - name: Install Build Dependencies
       run: |
         echo "🧩 Checking for apt locks..."
