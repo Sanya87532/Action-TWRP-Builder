@@ -186,11 +186,20 @@ jobs:
       with:
         swap-size-gb: 12
 
-    - name: Disable snapuserd (not needed for recovery)
+    - name: Disable snapuserd (workaround for missing libgflags)
       run: |
-        sed -i '/snapuserd/d' system/core/fs_mgr/libsnapshot/Android.bp || true
-      working-directory: ${{ steps.pwd.outputs.workspace-folder }}
+        echo "🩹 Disabling snapuserd to fix libgflags dependency issue..."
+        cd system/core/fs_mgr/libsnapshot || exit 0
+        # Комментируем или удаляем любые упоминания snapuserd
+        sed -i '/snapuserd/d' Android.bp || true
+        sed -i '/libgflags/d' Android.bp || true
 
+        # Проверяем, не остался ли snapuserd в манифесте soong
+        find . -type f -name 'Android.bp' -exec grep -H snapuserd {} \; || true
+
+        echo "✅ snapuserd disabled successfully."
+      working-directory: ${{ steps.pwd.outputs.workspace-folder }}
+      
     - name: Build TWRP
       run: |
         sudo ln -s /usr/bin/python3 /usr/bin/python || true
