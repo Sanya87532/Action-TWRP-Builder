@@ -227,7 +227,7 @@ jobs:
         echo "// dummy header" > system/core/fs_mgr/libsnapshot/snapuserd/snapuserd_client.h
 
         lunch ${{ github.event.inputs.MAKEFILE_NAME }}-eng
-        mka -k ${{ github.event.inputs.BUILD_TARGET }}image 2>&1 | tee build_log.txt || true
+        mka -j4 -k ${{ github.event.inputs.BUILD_TARGET }}image 2>&1 | tee build_log.txt || true
 
         echo "✅ Forcing build completion..."
         find out/target/product/rothko -name '*.img' -exec ls -lh {} \;
@@ -240,4 +240,4 @@ jobs:
         path: |
           workspace/out/target/product/${{ github.event.inputs.DEVICE_NAME }}/*.img
           workspace/out/target/product/${{ github.event.inputs.DEVICE_NAME }}/*.zip
-          workspace/build_log.txt
+          workspace/build_log.txnameameame
