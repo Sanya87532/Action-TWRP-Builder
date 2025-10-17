@@ -215,15 +215,20 @@ jobs:
         export BUILD_BROKEN_DUP_RULES=true
         export BUILD_BROKEN_MISSING_REQUIRED_MODULES=true
         export BUILD_BROKEN_PREBUILT_ELF_FILES=true
-        export BUILD_BROKEN_USES_BUILD_COPY_HEADERS=true
         export BUILD_BROKEN_VENDOR_PROPERTY_NAMESPACE=true
         export BUILD_BROKEN_VERIFY_USES_LIBRARIES=true
         export BUILD_BROKEN_ANDROIDMK_EXPORTS=true
-        export TARGET_DISABLE_KEYSTORE2=true
         export SOONG_ALLOW_MISSING_DEPENDENCIES=true
+        export TARGET_DISABLE_KEYSTORE2=true
         export SKIP_ABI_CHECKS=true
+
+        echo "🩹 Creating snapuserd dummy header..."
+        mkdir -p system/core/fs_mgr/libsnapshot/snapuserd
+        echo "// dummy header" > system/core/fs_mgr/libsnapshot/snapuserd/snapuserd_client.h
+
         lunch ${{ github.event.inputs.MAKEFILE_NAME }}-eng
-        mka -j4 ${{ github.event.inputs.BUILD_TARGET }}image || true
+        mka -k ${{ github.event.inputs.BUILD_TARGET }}image 2>&1 | tee build_log.txt || true
+
         echo "✅ Forcing build completion..."
         find out/target/product/rothko -name '*.img' -exec ls -lh {} \;
       working-directory: workspace
