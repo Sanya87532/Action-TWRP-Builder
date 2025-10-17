@@ -137,14 +137,14 @@ jobs:
         sudo ln -sf ~/bin/repo /usr/bin/repo
 
     - name: Initialize repo
-      id: pwd
       run: |
-        mkdir workspace
+        mkdir -p workspace
         cd workspace
         echo "workspace-folder=$(pwd)" >> $GITHUB_OUTPUT
         git config --global user.name "AutoBuilder"
         git config --global user.email "autobuild@users.noreply.github.com"
         repo init --depth=1 -u ${{ github.event.inputs.MANIFEST_URL }} -b ${{ github.event.inputs.MANIFEST_BRANCH }}
+      id: pwd
 
     - name: Repo Sync
       run: repo sync -j4 --force-sync
