@@ -145,8 +145,6 @@ jobs:
         git config --global user.email "autobuild@users.noreply.github.com"
         repo init --depth=1 -u ${{ github.event.inputs.MANIFEST_URL }} -b ${{ github.event.inputs.MANIFEST_BRANCH }}
         echo "workspace-folder=$(pwd)" >> $GITHUB_OUTPUT
-      outputs:
-        workspace-folder: ${{ steps.init.outputs.workspace-folder }}
 
     - name: Repo Sync
       run: repo sync -j4 --force-sync --no-tags --current-branch || repo sync -j1 --force-sync
@@ -173,7 +171,7 @@ jobs:
 
     - name: Ensure libgflags exists
       run: |
-        EXTERNAL_DIR="${{ steps.init.outputs.workspace-folder }}/external"
+        EXTERNAL_DIR="${{ github.workspace }}/workspace/external"
         mkdir -p "$EXTERNAL_DIR"
         if [ ! -d "$EXTERNAL_DIR/libgflags" ]; then
           echo "🔧 Cloning missing libgflags..."
@@ -181,7 +179,7 @@ jobs:
         else
           echo "✅ libgflags already exists."
         fi
-      working-directory: ${{ steps.init.outputs.workspace-folder }}
+      working-directory: workspace
 
     - name: Set Swap Space
       uses: pierotofy/set-swap-space@master
@@ -196,7 +194,7 @@ jobs:
         sed -i '/libgflags/d' Android.bp || true
         find . -type f -name 'Android.bp' -exec grep -H snapuserd {} \; || true
         echo "✅ snapuserd disabled successfully."
-      working-directory: ${{ steps.init.outputs.workspace-folder }}
+      working-directory: workspace
 
     - name: Check envsetup
       run: |
@@ -207,7 +205,7 @@ jobs:
           echo "❌ envsetup.sh not found!"
           exit 1
         fi
-      working-directory: ${{ steps.init.outputs.workspace-folder }}
+      working-directory: workspace
 
     - name: Build TWRP
       run: |
@@ -217,7 +215,7 @@ jobs:
         lunch ${{ github.event.inputs.MAKEFILE_NAME }}-eng
         mka clean
         mka -k -v ${{ github.event.inputs.BUILD_TARGET }}image 2>&1 | tee build_log.txt
-      working-directory: ${{ steps.init.outputs.workspace-folder }}
+      working-directory: workspace
 
     - name: Upload Artifacts
       uses: actions/upload-artifact@v4
@@ -226,3 +224,4 @@ jobs:
         path: |
           workspace/out/target/product/${{ github.event.inputs.DEVICE_NAME }}/*.img
           workspace/out/target/product/${{ github.event.inputs.DEVICE_NAME }}/*.zip
+          workspace/build_log.txt
