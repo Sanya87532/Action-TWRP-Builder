@@ -226,8 +226,10 @@ jobs:
         mkdir -p system/core/fs_mgr/libsnapshot/snapuserd
         echo "// dummy header" > system/core/fs_mgr/libsnapshot/snapuserd/snapuserd_client.h
 
+        echo "📦 Starting build..."
         lunch ${{ github.event.inputs.MAKEFILE_NAME }}-eng
-        mka -j4 -k name | tee build_log.txt || true
+        # Основная сборка vendor_boot
+        mka -j4 -k vendorbootimage 2>&1 | tee build_log.txt || true
 
         echo "✅ Forcing build completion..."
         find out/target/product/rothko -name '*.img' -exec ls -lh {} \;
