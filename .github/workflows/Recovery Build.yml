@@ -137,41 +137,43 @@ jobs:
         sudo ln -sf ~/bin/repo /usr/bin/repo
 
     - name: Initialize repo
+      id: init
       run: |
         mkdir -p workspace
         cd workspace
-        echo "workspace-folder=$(pwd)" >> $GITHUB_OUTPUT
         git config --global user.name "AutoBuilder"
         git config --global user.email "autobuild@users.noreply.github.com"
         repo init --depth=1 -u ${{ github.event.inputs.MANIFEST_URL }} -b ${{ github.event.inputs.MANIFEST_BRANCH }}
-      id: pwd
+        echo "workspace-folder=$(pwd)" >> $GITHUB_OUTPUT
+      outputs:
+        workspace-folder: ${{ steps.init.outputs.workspace-folder }}
 
     - name: Repo Sync
-      run: repo sync -j4 --force-sync
+      run: repo sync -j4 --force-sync --no-tags --current-branch || repo sync -j1 --force-sync
       working-directory: workspace
 
     - name: Clone Device Tree
       run: |
         rm -rf ./${{ github.event.inputs.DEVICE_PATH }}
         git clone ${{ github.event.inputs.DEVICE_TREE_URL }} -b ${{ github.event.inputs.DEVICE_TREE_BRANCH }} ./${{ github.event.inputs.DEVICE_PATH }}
-      working-directory: ${{ steps.pwd.outputs.workspace-folder }}
-      
+      working-directory: workspace
+
     - name: Clone Common Tree
       if: ${{ github.event.inputs.COMMON_TREE_URL && github.event.inputs.COMMON_PATH }}
       run: |
         git clone ${{ github.event.inputs.COMMON_TREE_URL }} -b ${{ github.event.inputs.DEVICE_TREE_BRANCH }} ./${{ github.event.inputs.COMMON_PATH }}
-      working-directory: ${{ steps.pwd.outputs.workspace-folder }}
+      working-directory: workspace
 
     - name: Sync Device Dependencies
       run: |
         bash ${GITHUB_WORKSPACE}/scripts/convert.sh ${{ github.event.inputs.DEVICE_PATH }}/twrp.dependencies || true
         repo sync -j4 || true
-      working-directory: ${{ steps.pwd.outputs.workspace-folder }}
+      working-directory: workspace
       continue-on-error: true
 
     - name: Ensure libgflags exists
       run: |
-        EXTERNAL_DIR="${{ steps.pwd.outputs.workspace-folder }}/external"
+        EXTERNAL_DIR="${{ steps.init.outputs.workspace-folder }}/external"
         mkdir -p "$EXTERNAL_DIR"
         if [ ! -d "$EXTERNAL_DIR/libgflags" ]; then
           echo "🔧 Cloning missing libgflags..."
@@ -179,7 +181,7 @@ jobs:
         else
           echo "✅ libgflags already exists."
         fi
-      working-directory: ${{ steps.pwd.outputs.workspace-folder }}
+      working-directory: ${{ steps.init.outputs.workspace-folder }}
 
     - name: Set Swap Space
       uses: pierotofy/set-swap-space@master
@@ -190,24 +192,32 @@ jobs:
       run: |
         echo "🩹 Disabling snapuserd to fix libgflags dependency issue..."
         cd system/core/fs_mgr/libsnapshot || exit 0
-        # Комментируем или удаляем любые упоминания snapuserd
         sed -i '/snapuserd/d' Android.bp || true
         sed -i '/libgflags/d' Android.bp || true
-
-        # Проверяем, не остался ли snapuserd в манифесте soong
         find . -type f -name 'Android.bp' -exec grep -H snapuserd {} \; || true
-
         echo "✅ snapuserd disabled successfully."
-      working-directory: ${{ steps.pwd.outputs.workspace-folder }}
-      
+      working-directory: ${{ steps.init.outputs.workspace-folder }}
+
+    - name: Check envsetup
+      run: |
+        echo "📁 Current directory: $(pwd)"
+        if [ -f build/envsetup.sh ]; then
+          echo "✅ envsetup.sh found!"
+        else
+          echo "❌ envsetup.sh not found!"
+          exit 1
+        fi
+      working-directory: ${{ steps.init.outputs.workspace-folder }}
+
     - name: Build TWRP
       run: |
-        sudo ln -s /usr/bin/python3 /usr/bin/python || true
+        sudo ln -sf /usr/bin/python3 /usr/bin/python || true
         source build/envsetup.sh
         export ALLOW_MISSING_DEPENDENCIES=true
         lunch ${{ github.event.inputs.MAKEFILE_NAME }}-eng
         mka clean
         mka -k -v ${{ github.event.inputs.BUILD_TARGET }}image 2>&1 | tee build_log.txt
+      working-directory: ${{ steps.init.outputs.workspace-folder }}
 
     - name: Upload Artifacts
       uses: actions/upload-artifact@v4
