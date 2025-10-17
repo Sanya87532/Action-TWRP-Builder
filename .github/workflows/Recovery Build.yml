@@ -184,7 +184,7 @@ jobs:
     - name: Set Swap Space
       uses: pierotofy/set-swap-space@master
       with:
-        swap-size-gb: 16
+        swap-size-gb: 20
 
     - name: Disable snapuserd (workaround for missing libgflags)
       run: |
