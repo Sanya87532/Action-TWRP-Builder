@@ -184,7 +184,7 @@ jobs:
     - name: Set Swap Space
       uses: pierotofy/set-swap-space@master
       with:
-        swap-size-gb: 12
+        swap-size-gb: 16
 
     - name: Disable snapuserd (workaround for missing libgflags)
       run: |
@@ -212,9 +212,12 @@ jobs:
         sudo ln -sf /usr/bin/python3 /usr/bin/python || true
         source build/envsetup.sh
         export ALLOW_MISSING_DEPENDENCIES=true
+        export BUILD_BROKEN_DUP_RULES=true
+        export BUILD_BROKEN_MISSING_REQUIRED_MODULES=true
+        export SKIP_ABI_CHECKS=true
         lunch ${{ github.event.inputs.MAKEFILE_NAME }}-eng
         mka clean
-        mka -k ${{ github.event.inputs.BUILD_TARGET }}image 2>&1 | tee build_log.txt
+        mka -j4 -k ${{ github.event.inputs.BUILD_TARGET }}image 2>&1 | tee build_log.txt
       working-directory: workspace
 
     - name: Upload Artifacts
