@@ -148,19 +148,7 @@ jobs:
 
     - name: Repo Sync
       run: repo sync -j4 --force-sync
-      working-directory: workspace
-
-    - name: Patch missing libgflags for snapuserd
-      run: |
-        cd system/core/fs_mgr/libsnapshot || exit 0
-        if [ ! -d ../../../external/gflags ]; then
-          echo "🔧 Cloning missing libgflags..."
-          cd ../../../external
-          git clone https://android.googlesource.com/platform/external/gflags gflags
-          cd -
-        fi
-        echo "✅ libgflags patched successfully."
-      working-directory: ${{ steps.pwd.outputs.workspace-folder }}
+      working-directory: workstrue
 
     - name: Clone Device Tree
       run: |
@@ -180,6 +168,18 @@ jobs:
         repo sync -j4 || true
       working-directory: ${{ steps.pwd.outputs.workspace-folder }}
       continue-on-error: true
+
+    - name: Ensure libgflags exists
+      run: |
+        EXTERNAL_DIR="${{ steps.pwd.outputs.workspace-folder }}/external"
+        mkdir -p "$EXTERNAL_DIR"
+        if [ ! -d "$EXTERNAL_DIR/libgflags" ]; then
+          echo "🔧 Cloning missing libgflags..."
+          git clone https://github.com/gflags/gflags.git "$EXTERNAL_DIR/libgflags"
+        else
+          echo "✅ libgflags already exists."
+        fi
+      working-directory: ${{ steps.pwd.outputs.workspace-folder }}
 
     - name: Set Swap Space
       uses: pierotofy/set-swap-space@master
