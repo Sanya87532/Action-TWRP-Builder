@@ -214,7 +214,7 @@ jobs:
         export ALLOW_MISSING_DEPENDENCIES=true
         lunch ${{ github.event.inputs.MAKEFILE_NAME }}-eng
         mka clean
-        mka -k -v ${{ github.event.inputs.BUILD_TARGET }}image 2>&1 | tee build_log.txt
+        mka -k ${{ github.event.inputs.BUILD_TARGET }}image 2>&1 | tee build_log.txt
       working-directory: workspace
 
     - name: Upload Artifacts
